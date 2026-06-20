@@ -1,8 +1,14 @@
 from base.game import AlternatingGame, AgentID, ActionType
 from base.agent import Agent
-from math import log, sqrt
 import numpy as np
 from typing import Callable
+from agents.tree_search import (
+    backpropagate,
+    best_action_value,
+    random_rollout_rewards,
+    random_unexpanded_action,
+    uct,
+)
 
 class MCTSNode:
     def __init__(self, parent: 'MCTSNode', game: AlternatingGame, action: ActionType):
@@ -15,37 +21,6 @@ class MCTSNode:
         self.value = 0
         self.cum_rewards = np.zeros(len(game.agents))
         self.agent = self.game.agent_selection
-
-def ucb(node, C=sqrt(2)) -> float:
-    """
-    Corresponde a ExploreAction(ŝτ) del algoritmo.
-
-    Fórmula del algoritmo:
-        Q(s,a) + C * sqrt( ln N(s) / N(s,a) )
-
-    En este código:
-        node                     = hijo que representa aplicar una acción a
-        node.parent              = estado padre s
-        node.visits              = N(s,a)
-        node.parent.visits       = N(s)
-        node.cum_rewards / visits = Q(s,a)
-    """
-    agent_idx = node.game.agent_name_mapping[node.agent]
-
-    exploitation = node.cum_rewards[agent_idx] / node.visits
-    exploration = C * sqrt(log(node.parent.visits)/node.visits)
-
-    return exploitation + exploration
-
-def uct(node: MCTSNode, agent: AgentID) -> MCTSNode:
-    """
-    UCT elige el hijo con mayor UCB.
-    Esto implementa:
-        âτ ← ExploreAction(ŝτ)
-    cuando el nodo ya tiene todos sus hijos expandidos.
-    """
-    child = max(node.children, key=ucb)
-    return child
 
 class MonteCarloTreeSearch(Agent):
     def __init__(self, game: AlternatingGame, agent: AgentID, simulations: int=100, rollouts: int=10, selection: Callable[[MCTSNode, AgentID], MCTSNode]=uct) -> None:
@@ -133,51 +108,6 @@ class MonteCarloTreeSearch(Agent):
 
         return action, value
 
-    def backprop(self, node, rewards):
-        # TODO
-        # cumulate rewards and visits from node to root navigating backwards through parent
-        curr_node = node
-
-        # while τ > t do
-        while curr_node is not None:
-            # Update(Q, ŝτ, âτ)
-            curr_node.visits += 1
-            curr_node.cum_rewards += rewards
-
-            agent_idx = curr_node.game.agent_name_mapping[self.agent]
-            curr_node.value = curr_node.cum_rewards[agent_idx] / curr_node.visits
-
-            # τ ← τ − 1
-            curr_node = curr_node.parent
-
-    def rollout(self, node):
-        rewards = np.zeros(len(self.game.agents))
-        # TODO
-        # implement rollout policy
-        # for i in range(self.rollouts): 
-        #     play random game and record average rewards
-        if self.rollouts <= 0:
-            return rewards
-
-        for _ in range(self.rollouts):
-            # Copia del estado del nodo para no modificar el arbol
-            game = node.game.clone()
-
-            # Jugamos aleatoriamente hasta que termine el juego
-            while not game.game_over():
-                actions = game.available_actions()
-                if len(actions) == 0:
-                    break
-
-                action = np.random.choice(actions)
-                game.step(action)
-
-            rewards += np.array([game.reward(agent) for agent in game.agents])
-
-        # Promedio de recompensas de todos los rollouts.
-        rewards = rewards / self.rollouts
-        return rewards
-
     def select_node(self, node: MCTSNode) -> MCTSNode:
         """
         Baja por el arbol mientras existan hijos.
@@ -213,20 +143,15 @@ class MonteCarloTreeSearch(Agent):
         if node.game.game_over():
             return
 
-        # Acciones que ya tienen un hijo en el arbol.
-        expanded_actions = {child.action for child in node.children}
-
         # Acciones validas desde este estado
         available_actions = list(node.game.available_actions())
 
         # Acciones validas que aun no fueron expandidas
-        unexplored_actions = [action for action in available_actions if action not in expanded_actions]
-
-        if not unexplored_actions:
+        action = random_unexpanded_action(node, available_actions)
+        if action is None:
             return
 
         # Elegimos una acción nueva para expandir
-        action = np.random.choice(unexplored_actions)
         child_game = node.game.clone()
 
 
@@ -239,30 +164,29 @@ class MonteCarloTreeSearch(Agent):
         child = MCTSNode(parent=node, game=child_game, action=action)
         node.children.append(child)
 
+    def rollout(self, node):
+        # TODO
+        # implement rollout policy
+        # for i in range(self.rollouts): 
+        #     play random game and record average rewards
+        # Copia del estado del nodo para no modificar el arbol.
+        # Promedio de recompensas de todos los rollouts.
+        return random_rollout_rewards(node.game, self.rollouts)
+
+    def backprop(self, node, rewards):
+        # TODO
+        # cumulate rewards and visits from node to root navigating backwards through parent
+        # while τ > t do
+        #     Update(Q, ŝτ, âτ)
+        backpropagate(node, rewards, self.agent)
+
     def action_selection(self, node: MCTSNode) -> (ActionType, float):
-        action: ActionType = None
-        value: float = 0
         # TODO
         # hint: return action of child with max value 
         # other alternatives could be considered
 
-        if not node.children:
-            return action, value
-
-        agent_idx = node.game.agent_name_mapping[self.agent]
-
         # πt ← BestAction(st)
-        child = max(
-            node.children,
-            key=lambda child: (
-                child.cum_rewards[agent_idx] / child.visits if child.visits > 0 else 0,
-                child.visits
-            )
-        )
+        action, value = best_action_value(node, self.agent)
 
         # at ∼ πt
-        action = child.action
-        if child.visits > 0:
-            value = child.cum_rewards[agent_idx] / child.visits
-
         return action, value
