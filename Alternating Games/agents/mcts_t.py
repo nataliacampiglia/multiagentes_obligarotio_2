@@ -67,7 +67,7 @@ class MonteCarloTreeSearch(Agent):
             #     r̂τ ← R(...)
             #     τ ← τ + 1
             # select_node baja por el árbol
-            print('--selection--')
+            # print('--selection--')
             node = self.select_node(node=node)
 
             # ----------------------------
@@ -77,14 +77,20 @@ class MonteCarloTreeSearch(Agent):
             #     InitializeNode(ŝτ)
             #
             # Se agrega un hijo nuevo al árbol (expande).
-            print('--expansion--')
-            self.expand_node(node)
+            # print('--expansion--')
+            # expand_node devuelve el hijo recién creado (o None si node ya
+            # era terminal / estaba completamente expandido); el rollout y el
+            # backprop tienen que hacerse sobre ESE hijo nuevo, no sobre 'node'
+            # (si los hiciéramos sobre 'node' nunca se evaluaría el nodo recién
+            # agregado, y el árbol jamás crecería más allá de un solo camino).
+            expanded = self.expand_node(node)
+            eval_node = expanded if expanded is not None else node
 
             # -----------------------
             # Simulation / Rollout
             # -----------------------
-            print('--rollout--')
-            rewards = self.rollout(node)
+            # print('--rollout--')
+            rewards = self.rollout(eval_node)
 
             # ----------------------------
             # BACKPROPAGATION
@@ -93,8 +99,8 @@ class MonteCarloTreeSearch(Agent):
             #     τ ← τ - 1
             #     Update(Q, ŝτ, âτ)
             # Actualizamos visitas y recompensas desde el nodo hasta la raíz.
-            print('--backprop--')
-            self.backprop(node, rewards)
+            # print('--backprop--')
+            self.backprop(eval_node, rewards)
 
         #print('root childs')
         #for child in root.children:
@@ -110,9 +116,11 @@ class MonteCarloTreeSearch(Agent):
 
     def select_node(self, node: MCTSNode) -> MCTSNode:
         """
-        Baja por el arbol mientras existan hijos.
-        Si todavía hay hijos no explorados, elige el siguiente hijo no explorado.
-        Si todos fueron explorados, usa UCT/UCB.
+        Baja por el arbol mientras el nodo actual esté completamente expandido
+        (tiene un hijo por cada acción legal disponible en ese estado).
+        Si todavía le quedan acciones sin probar, lo devolvemos tal cual para
+        que expand_node agregue el próximo hijo no explorado.
+        Si todos fueron explorados, usa UCT/UCB para bajar un nivel más.
         """
         curr_node = node
         # while ŝτ is non-terminal and ŝτ-node exists in tree do
@@ -120,7 +128,7 @@ class MonteCarloTreeSearch(Agent):
             #     ŝτ+1 ∼ T(. | ŝτ, âτ)
             #     r̂τ ← R(...)
             #     τ ← τ + 1
-        while curr_node.children:
+        while curr_node.children and len(curr_node.children) == len(curr_node.game.available_actions()):
             # Aun hay hijos que no fueron seleccionados, hacemos esto antes de comenzar a aplicar UCB.
             if curr_node.explored_children < len(curr_node.children):
                 curr_node = curr_node.children[curr_node.explored_children]
@@ -135,13 +143,15 @@ class MonteCarloTreeSearch(Agent):
                 curr_node = self.selection(curr_node, agent)
         return curr_node
 
-    def expand_node(self, node) -> None:
+    def expand_node(self, node) -> 'MCTSNode | None':
         # TODO
-        # if the game is not terminated: 
+        # if the game is not terminated:
         #    play an available action in node
         #    create a new child node and add it to node children
+        # Devuelve el hijo creado (o None si no se expandió nada), para que
+        # mcts() pueda hacer el rollout/backprop sobre el nodo correcto.
         if node.game.game_over():
-            return
+            return None
 
         # Acciones validas desde este estado
         available_actions = list(node.game.available_actions())
@@ -149,20 +159,21 @@ class MonteCarloTreeSearch(Agent):
         # Acciones validas que aun no fueron expandidas
         action = random_unexpanded_action(node, available_actions)
         if action is None:
-            return
+            return None
 
         # Elegimos una acción nueva para expandir
         child_game = node.game.clone()
 
 
         # aplicamos la transición del juego.
-        # ŝτ+1 ∼ T(. | ŝτ, âτ) 
+        # ŝτ+1 ∼ T(. | ŝτ, âτ)
         child_game.step(action)
 
         # Creamos el nuevo nodo y lo agregamos al arbol
         # InitializeNode(ŝτ)
         child = MCTSNode(parent=node, game=child_game, action=action)
         node.children.append(child)
+        return child
 
     def rollout(self, node):
         # TODO
