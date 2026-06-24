@@ -126,8 +126,22 @@ class KuhnPoker3(AlternatingGame):
     def available_actions(self):
         return list(range(self._num_actions))
 
+    def sample_from_infoset(self, agent: AgentID):
+        agent_idx = self.agent_name_mapping[agent]
+        agent_card = self._hand[agent_idx]
+
+        other_indices = [i for i in range(self.num_agents) if i != agent_idx]
+        available = [c for c in self._cards if c != agent_card]
+
+        clone = self.clone()
+        sampled = np.random.choice(available, size=len(other_indices), replace=False)
+        for idx, card in zip(other_indices, sampled):
+            clone._hand[idx] = card
+
+        return clone
+
     def action_move(self, action: ActionType) -> str:
         if action not in range(self._num_actions):
             raise ValueError(f"{action} is not a legal action.")
-        
+
         return self._moves[action]
