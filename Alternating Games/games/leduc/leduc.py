@@ -52,8 +52,61 @@ class Leduc(AlternatingGame):
         self.env.step(action)
         self._update()
 
+    def clone(self):
+        import copy
+        # deepcopy no funciona: raw_env usa EzPickle, cuyo __getstate__ solo guarda
+        # los args del constructor y pierde todo el estado de reset(). Creamos una
+        # instancia nueva y restauramos el estado manualmente.
+        #
+        # El clon tiene las cartas reales de ambos jugadores. 
+        # Para CFR esto es correcto, la información oculta se maneja en observe(), no en el estado del juego.
+        # Para ISMCTS usar sample_from_infoset(), que aleatoriza la mano del oponente.
+        new_game = Leduc(render_mode=self.render_mode)
+        if not hasattr(self.env, 'agent_selection'):
+            # El juego nunca fue reseteado; no hay estado post-reset que copiar.
+            new_game._hist = self._hist
+            return new_game
+        new_game.env.reset()  # inicializa terminations / rewards / etc. en raw_env
+        # Estado interno del juego rlcard (cartas, apuestas, rondas)
+        new_game.env.env.game = copy.deepcopy(self.env.env.game)
+        new_game.env.env.timestep = self.env.env.timestep
+        new_game.env.env.action_recorder = copy.deepcopy(self.env.env.action_recorder)
+        # Estado del wrapper pettingzoo (agente activo, terminaciones, recompensas)
+        new_game.env.agent_selection = self.env.agent_selection
+        new_game.env.agents = list(self.env.agents)
+        new_game.env.terminations = dict(self.env.terminations)
+        new_game.env.truncations = dict(self.env.truncations)
+        new_game.env.rewards = dict(self.env.rewards)
+        new_game.env._cumulative_rewards = dict(self.env._cumulative_rewards)
+        new_game.env.infos = copy.deepcopy(self.env.infos)
+        new_game.env.next_legal_moves = list(self.env.next_legal_moves)
+        new_game.env._last_obs = copy.deepcopy(self.env._last_obs)
+        new_game._hist = self._hist
+        new_game._update()
+        return new_game
+
     def available_actions(self):
-        return list(self.env.next_legal_moves)
+        if hasattr(self.env, 'next_legal_moves'):
+            return list(self.env.next_legal_moves)
+        # Fallback when pettingzoo reset() was never called (e.g. uninitialized clone)
+        state = self.env.env.get_state(self.env.env.game.game_pointer)
+        return list(state['legal_actions'])
     
+    def sample_from_infoset(self, agent):
+        import random as rnd
+        clone = self.clone()
+        game = clone.env.env.game
+        my_idx = clone.env._name_to_int(agent)
+        opp_idx = 1 - my_idx
+
+        # cartas que el agente no puede ver: mano del oponente + mazo restante
+        pool = [game.players[opp_idx].hand] + list(game.dealer.deck)
+        rnd.shuffle(pool)
+
+        game.players[opp_idx].hand = pool[0]
+        game.dealer.deck = pool[1:]
+
+        return clone
+
     def close(self):
         self.env.close()
