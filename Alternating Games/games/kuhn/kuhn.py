@@ -125,8 +125,11 @@ class KuhnPoker(AlternatingGame):
         new_game._hand[other_idx] = np.random.choice(other_cards)
         return new_game
 
+    def sample_from_infoset(self, agent: AgentID):
+        return self.random_change(agent)
+
     def action_move(self, action: ActionType) -> str:
         if action not in range(self._num_actions):
             raise ValueError(f"{action} is not a legal action.")
-        
+
         return self._moves[action]
