@@ -11,4 +11,6 @@ dependencies = [
     "pettingzoo>=1.25.0",
     "pygame>=2.6.1",
     "rlcard>=1.2.0",
+    "pandas>=2.0.0",
+    "matplotlib>=3.7.0",
 ]
