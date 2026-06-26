@@ -60,17 +60,13 @@ class CounterFactualRegret(Agent):
     
     def train(self, niter=1000):
         for _ in range(niter):
-            _ = self.cfr()
+            self.cfr()
 
-    def cfr(self):
+    def cfr(self) -> float:
         game = self.game.clone()
-        utility: dict[AgentID, float] = dict()
-        for agent in self.game.agents:
-            game.reset()
-            probability = np.ones(game.num_agents)
-            utility[agent] = self.cfr_rec(game=game, agent=agent, probability=probability)
-
-        return utility 
+        game.reset()
+        probability = np.ones(game.num_agents)
+        return self.cfr_rec(game=game, agent=self.agent, probability=probability)
 
     def cfr_rec(self, game: AlternatingGame, agent: AgentID, probability: ndarray):
         # TODO
