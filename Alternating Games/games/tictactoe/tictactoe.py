@@ -1,15 +1,16 @@
-from base.game import AgentID, ObsType
+from abc import ABC, abstractmethod
+from base.game import AgentID, ObsType, AlternatingGame
 from numpy import ndarray
 from gymnasium.spaces import Discrete, Text, Dict, Tuple
 from pettingzoo.utils import agent_selector
 from games.tictactoe import tictactoe_v3 as tictactoe
-from base.game import AlternatingGame, AgentID
 import numpy as np
 
 import warnings
 warnings.filterwarnings("ignore")
 
-class TicTacToe(AlternatingGame):
+
+class TicTacToeAbs(AlternatingGame, ABC):
 
     def __init__(self, render_mode=''):
         super().__init__()
@@ -32,16 +33,8 @@ class TicTacToe(AlternatingGame):
         self._update()
 
     def observe(self, agent: AgentID) -> ObsType:
-        # A grid is list of lists, where each list represents a row
-        # blank space = 0
-        # agent = 1
-        # opponent = 2
-        # Ex:
-        # [[0,0,2]
-        #  [1,2,1]
-        #  [2,1,0]]
         observation = self.env.observe(agent=agent)['observation']
-        grid = np.sum(observation*[1,2], axis=2)
+        grid = np.sum(observation * [1, 2], axis=2)
         return grid
 
     def step(self, action):
@@ -53,7 +46,7 @@ class TicTacToe(AlternatingGame):
 
     def render(self):
         print("Player:", self.agent_selection)
-        print("Board:") 
+        print("Board:")
         sq = np.array(self.env.board.squares).reshape((3, 3))
         for i in range(3):
             for j in range(3):
@@ -67,44 +60,74 @@ class TicTacToe(AlternatingGame):
         print()
 
     def clone(self):
-        self_clone = TicTacToe(render_mode=self.env.render_mode)
-        self_clone.env.board.squares = self.env.board.squares.copy()
-        self_clone.env.rewards = self.env.rewards.copy()
-        self_clone.env.terminations = self.env.terminations.copy()
-        self_clone.env.truncations = self.env.truncations.copy()
-        self_clone.env.infos = self_clone.env.infos.copy
-        self_clone.env.agent_selection = self.env.agent_selection
-        self_clone._update()
-        return self_clone
+        clone = self.__class__(render_mode=self.env.render_mode)
+        clone.env.board.squares = self.env.board.squares.copy()
+        clone.env.rewards = self.env.rewards.copy()
+        clone.env.terminations = self.env.terminations.copy()
+        clone.env.truncations = self.env.truncations.copy()
+        clone.env.infos = clone.env.infos.copy
+        clone.env.agent_selection = self.env.agent_selection
+        clone._update()
+        return clone
+
+    @abstractmethod
+    def eval(self, agent: AgentID) -> float:
+        pass
+
+
+class TicTacToe(TicTacToeAbs):
+    """Eval basado en líneas abiertas (filas, columnas y diagonales sin fichas del rival)."""
 
     def eval(self, agent: AgentID) -> float:
         if agent not in self.agents:
             raise ValueError(f"Agent {agent} is not part of the game.")
-
         if self.terminated():
             return self.rewards[agent]
-    
         grid = self.observe(agent)
-
-        E_agent = self._eval(grid, 2)
+        E_agent    = self._eval(grid, 2)
         E_opponent = self._eval(grid, 1)
-        v = (E_agent - E_opponent) / 8.0
+        return (E_agent - E_opponent) / 8.0
 
-        return v
-    
     def _eval(self, grid, player) -> float:
-        rows = 0
-        for i in range(3):
-            rows += int(all(grid[i] != player))
-
-        cols = 0
-        for i in range(3):
-            cols += int(all(grid.T[i] != player))           
-
+        rows = sum(int(all(grid[i] != player)) for i in range(3))
+        cols = sum(int(all(grid.T[i] != player)) for i in range(3))
         diag1 = int(all(grid.diagonal() != player))
         diag2 = int(all(np.fliplr(grid).diagonal() != player))
+        return rows + cols + diag1 + diag2
 
-        return (rows + cols + diag1 + diag2)
+class TicTacToeEval(TicTacToeAbs):
+    """
+    Eval basado en amenazas: líneas con 2 fichas propias + 1 casilla vacía valen más.
+    Por cada línea sin piezas del rival, suma owns² — una línea con 2 piezas propias vale 4,
+    con 1 vale 1, vacía vale 0. Esto prioriza activamente completar líneas en lugar de solo mantenerlas abiertas.
+    """
 
-    
-    
+    def eval(self, agent: AgentID) -> float:
+        if agent not in self.agents:
+            raise ValueError(f"Agent {agent} is not part of the game.")
+        if self.terminated():
+            return self.rewards[agent]
+        grid = self.observe(agent)
+        E_agent    = self._eval(grid, 2)
+        E_opponent = self._eval(grid, 1)    
+        return (E_agent - E_opponent) / 8.0 
+
+    def _eval(self, grid, player) -> float:
+        lines = (
+            [grid[i] for i in range(3)]          # filas
+            + [grid.T[i] for i in range(3)]       # columnas
+            + [grid.diagonal()]                    # diagonal principal
+            + [np.fliplr(grid).diagonal()]         # diagonal secundaria
+        )
+        score = 0.0
+        for line in lines:
+            # cant de fichas de agente
+            owns   = np.sum(line == player)
+            # cant de vacios en la linea
+            blanks = np.sum(line == 0)
+            # cant de fichas del rival
+            rival  = 3 - owns - blanks
+            if rival == 0:
+                # línea sin fichas del rival: pesa según cuántas propias hay
+                score += owns ** 2
+        return score
