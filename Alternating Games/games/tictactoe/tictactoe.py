@@ -130,4 +130,5 @@ class TicTacToeEval(TicTacToeAbs):
             if rival == 0:
                 # línea sin fichas del rival: pesa según cuántas propias hay
                 score += owns ** 2
+            # si hay fichas del rival en mi linea, no es buena la linea y no suma nada
         return score
