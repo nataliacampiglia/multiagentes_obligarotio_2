@@ -344,30 +344,35 @@ La comparación con MiniMax ilustra el compromiso central entre búsqueda exhaus
 
 \subsection{Nocca Nocca}
 
-En Nocca Nocca se evaluaron principalmente MiniMax y Monte Carlo Tree Search (MCTS). A diferencia de Tic-Tac-Toe, este juego tiene un tablero más grande, más acciones legales por estado y partidas potencialmente más largas. Por eso no se usa una solución exacta del juego como referencia, sino que se comparan resultados empíricos y tiempos de decisión.
+En Nocca Nocca se evaluaron principalmente MiniMax y Monte Carlo Tree Search (MCTS). A diferencia de Tic-Tac-Toe, este juego tiene un tablero más grande, más acciones legales por estado y partidas potencialmente más largas. Por eso no se usa una solución exacta del juego como referencia, sino que se comparan resultados empíricos y tiempos de decisión. Además, los experimentos se ejecutan con pocas partidas, porque aun con pocos juegos algunas configuraciones tardan horas en terminar.
 
-Los experimentos se realizaron desde la perspectiva del agente evaluado. En las comparaciones simétricas, el agente juega la misma cantidad de partidas como jugador inicial y como segundo jugador, y luego se combinan los resultados. Esta evaluación ayuda a reducir el sesgo asociado al orden de juego. Como no se dispone de un valor de Nash calculado para Nocca Nocca, la recompensa promedio $0$ se usa únicamente como referencia neutral: valores positivos indican ventaja del agente evaluado y valores negativos indican ventaja del rival.
+En los análisis, el equilibrio se representa mediante el acercamiento a una recompensa promedio de $0$, donde valores positivos favorecen al agente evaluado y valores negativos favorecen al rival, por lo tanto la convergencia a cero significa que los agentes ganas en un 50\% de las veces.
 
 \subsubsection*{MiniMax vs MiniMax}
 
-Se evaluó MiniMax contra sí mismo usando profundidades 1, 2 y 3. En cada configuración se jugaron 5 partidas por cada rol, para un total de 10 partidas. A diferencia de Tic-Tac-Toe, MiniMax no puede buscar hasta el final de la partida. Además, la función de evaluación utilizada devuelve recompensa terminal cuando el juego termina y $0$ en estados no terminales. Por eso, con profundidades acotadas, MiniMax solo distingue con claridad posiciones donde aparece una victoria o derrota dentro del horizonte de búsqueda.
+Se evaluó MiniMax contra sí mismo usando profundidades 1, 2, 3 y 4. En cada configuración se jugaron 3 partidas por cada rol, para un total de 6 partidas por profundidad. A diferencia de Tic-Tac-Toe, MiniMax no puede buscar hasta el final de la partida. Además, la función de evaluación utilizada devuelve recompensa terminal cuando el juego termina y $0$ en estados no terminales. Por eso, con profundidades acotadas, MiniMax solo distingue con claridad posiciones donde aparece una victoria o derrota dentro del horizonte de búsqueda.
 
 \begin{table}[H]
     \centering
     \begin{tabular}{c|rrrrr}
         \toprule
-        Profundidad & Victorias A0 & Empates & Victorias A1 & Recompensa A0 & Tiempo A0 (ms) \\
+        Profundidad & Victorias A0 & Empates & Victorias A1 & Recompensa A0 & Tiempo A0 (s) \\
         \midrule
-        1 & 4 & 1 & 5 & -0.10 & 2.39 \\
-        2 & 3 & 3 & 4 & -0.10 & 69.68 \\
-        3 & 4 & 0 & 6 & -0.20 & 1826.14 \\
+        1 & 2 & 1 & 3 & -0.17 & 0.0007 \\
+        2 & 1 & 4 & 1 & 0.00 & 0.0141 \\
+        3 & 4 & 1 & 1 & 0.50 & 0.3729 \\
+        4 & 0 & 6 & 0 & 0.00 & 7.6805 \\
         \bottomrule
     \end{tabular}
     \caption{Resultados de MiniMax vs MiniMax en Nocca Nocca.}
     \label{tab:nocca-minimax-minimax}
 \end{table}
 
-Los resultados no muestran una convergencia clara al aumentar la profundidad: la recompensa promedio del agente 0 se mantiene cerca de 0, pero levemente negativa en las tres configuraciones. Esto se explica por la combinación de horizonte limitado, alta ramificación y una evaluación poco informativa en estados intermedios. En cambio, el costo computacional sí crece de forma marcada.
+Los resultados no muestran una mejora monótona al aumentar la profundidad.
+Con profundidad 2 y 4 la recompensa promedio del agente 0 queda en 0, mientras que con profundidad 3 aparece una ventaja para el agente 0 en esta corrida. 
+En profundidad 4 todas las partidas terminaron con recompensa 0, es decir que el juego llegó al límite de pasos (\texttt{max\_steps}). Mirar más jugadas hacia adelante no alcanzó para conseguir más victorias dentro de ese límite.
+Esto puede pasar porque el juego tiene muchas acciones posibles y la evaluación de estados intermedios aporta poca información. En cambio, el costo computacional sí crece mucho, pasando de menos de una milésima de segundo por decisión con profundidad 1 a más de 7 segundos por decisión con profundidad 4.
+
 
 \begin{figure}[H]
     \centering
@@ -378,7 +383,7 @@ Los resultados no muestran una convergencia clara al aumentar la profundidad: la
 
 \subsubsection*{MCTS vs MCTS}
 
-Para analizar MCTS en self-play se realizaron dos barridos. En el primero se varió la cantidad de simulaciones, manteniendo 5 rollouts por acción. Se probaron 25, 50, 100, 200 y 500 simulaciones, con 10 partidas por rol en cada configuración.
+Para analizar MCTS en self-play se realizaron dos casos, en el primero se varió la cantidad de simulaciones, manteniendo 5 rollouts por acción. Se probaron 25, 50, 100, 200 y 500 simulaciones, con 10 partidas por rol en cada configuración.
 
 \begin{table}[H]
     \centering
@@ -397,8 +402,6 @@ Para analizar MCTS en self-play se realizaron dos barridos. En el primero se var
     \label{tab:nocca-mcts-mcts-sim}
 \end{table}
 
-La recompensa promedio oscila alrededor de 0, lo que indica que ningún rol domina de manera estable en esta corrida. El resultado más relevante es el crecimiento del tiempo de decisión: pasar de 25 a 500 simulaciones aumenta el costo desde aproximadamente 1.451 s hasta 30.683 s por decisión. En este juego, por lo tanto, aumentar simulaciones mejora la exploración, pero rápidamente vuelve costosa cada jugada.
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{figures/NoccaNocca/exp7_mcts_vs_mcts_simulations.png}
@@ -406,9 +409,13 @@ La recompensa promedio oscila alrededor de 0, lo que indica que ningún rol domi
     \label{fig:nocca-exp7-mcts-simulations}
 \end{figure}
 
-En el segundo barrido se fijó un presupuesto bajo de 100 simulaciones y se varió la cantidad de rollouts por simulación. Se probaron 1, 5, 10 y 20 rollouts. El objetivo de este experimento es observar si, manteniendo baja la cantidad de simulaciones, aumentar los rollouts alcanza para acercar el self-play al equilibrio, representado por una recompensa promedio cercana a 0.
+Se observa que la recompensa promedio oscila alrededor de 0, lo que indica que ningún rol domina de manera estable en esta corrida. A partir de 100 simulaciones, los valores quedan más cerca de 0, lo que muestra que se acercan al equilibrio.
+El resultado más relevante es el crecimiento del tiempo de decisión, pasar de 25 a 500 simulaciones aumenta el costo desde aproximadamente 1.451s hasta 30.683s por decisión. 
+En este juego, por lo tanto, aumentar simulaciones mejora la exploración, pero rápidamente vuelve costosa cada jugada.
 
-Los resultados muestran que esto no ocurre de forma clara. Aunque más rollouts permiten promediar más trayectorias aleatorias desde cada nodo, no compensan completamente la falta de exploración del árbol cuando el número de simulaciones es limitado. En la corrida obtenida, la recompensa promedio no converge de manera monótona hacia 0: con 5 rollouts el agente 0 obtiene su mejor resultado, con 10 rollouts vuelve a quedar levemente por debajo de 0 y con 20 rollouts queda otra vez por encima. Esto sugiere que, para Nocca Nocca, aumentar rollouts mejora la estimación local de acciones ya exploradas, pero no reemplaza la necesidad de contar con suficientes simulaciones para explorar mejor el árbol.
+
+
+En el segundo caso se fijaron las simulaciones en 100 simulaciones y se varió la cantidad de rollouts por simulación. Se probaron 1, 5, 10 y 20 rollouts. El objetivo de este experimento es observar si, manteniendo baja la cantidad de simulaciones, aumentar los rollouts alcanza para acercar el self-play al equilibrio, representado por una recompensa promedio cercana a 0.
 
 \begin{table}[H]
     \centering
@@ -433,19 +440,137 @@ Los resultados muestran que esto no ocurre de forma clara. Aunque más rollouts 
     \label{fig:nocca-exp8-mcts-rollouts}
 \end{figure}
 
+
+Los resultados muestran que esto no ocurre de forma clara. 
+Aunque más rollouts permiten promediar más trayectorias aleatorias desde cada nodo, no compensan completamente la falta de exploración del árbol, dado el número de simulaciones es limitado. 
+Se observa que la recompensa promedio no converge de manera monótona hacia 0. Los mejores resultados aparecen alrededor de 10 rollouts, donde la recompensa queda más cerca del equilibrio. 
+Al aumentar a 20 rollouts no se obtiene una mejora clara, lo que sugiere que, aumentar rollouts mejora la estimación local de acciones ya exploradas, pero no reemplaza la necesidad de contar con suficientes simulaciones para explorar mejor el árbol.
+
+
+
 \subsubsection*{MCTS vs MiniMax}
 
-También se comparó MCTS contra MiniMax. En esta evaluación, MCTS es el agente bajo análisis y MiniMax funciona como oponente determinista con profundidad acotada. La comparación permite observar dos formas distintas de usar presupuesto de cómputo: MCTS aumenta el número de simulaciones, mientras que MiniMax aumenta la profundidad de búsqueda.
+También se comparó MCTS contra MiniMax. La comparación permite observar dos formas distintas de jugar, donde MCTS aumenta el número de simulaciones y  MiniMax aumenta la profundidad de búsqueda.
 
-En la configuración actual de la notebook se evaluó MCTS con 50 y 100 simulaciones, usando 5 rollouts por simulación, contra MiniMax con profundidades 2, 3 y 5. Para reducir el sesgo por orden de juego, la evaluación es simétrica: MCTS juega 3 partidas como primer jugador y 3 partidas como segundo jugador en cada configuración, para un total de 6 partidas por combinación.
+En la configuración actual de la notebook se evaluó MCTS con 100 y 200 simulaciones, usando 5 rollouts por simulación, contra MiniMax con profundidades 2, 3 y 4. En cada combinación se jugaron 8 partidas, combinando partidas con MCTS como primer y segundo jugador.
 
-Esta comparación es especialmente costosa en Nocca Nocca. MiniMax no utiliza poda alfa-beta y, además, la función de evaluación devuelve 0 en estados no terminales. Por eso, aumentar la profundidad permite ver más posibles finales, pero también hace crecer rápidamente el árbol de búsqueda. En particular, la profundidad 5 se incluye como una configuración exigente para mostrar el límite práctico de MiniMax con la implementación actual.
+\begin{table}[H]
+    \centering
+    \begin{adjustbox}{max width=\textwidth}
+    \begin{tabular}{cc|rrrr|rr}
+        \toprule
+        Simulaciones & Prof. MiniMax & Victorias MCTS & Empates & Victorias MiniMax & Recompensa MCTS & Tiempo MCTS (s) & Tiempo MiniMax (s) \\
+        \midrule
+        100 & 2 & 5 & 0 & 3 & 0.25 & 0.506 & 0.012 \\
+        100 & 3 & 7 & 0 & 1 & 0.75 & 0.583 & 0.279 \\
+        100 & 4 & 3 & 0 & 5 & -0.25 & 0.438 & 5.363 \\
+        200 & 2 & 8 & 0 & 0 & 1.00 & 0.921 & 0.014 \\
+        200 & 3 & 7 & 0 & 1 & 0.75 & 0.974 & 0.260 \\
+        200 & 4 & 4 & 0 & 4 & 0.00 & 0.960 & 6.057 \\
+        \bottomrule
+    \end{tabular}
+    \end{adjustbox}
+    \caption{Resultados de MCTS vs MiniMax en Nocca Nocca. Cada fila resume 8 partidas desde la perspectiva de MCTS.}
+    \label{tab:nocca-mcts-minimax}
+\end{table}
+
+Los resultados muestran que MCTS obtiene ventaja clara contra MiniMax de profundidad 2 y 3, especialmente con 200 simulaciones. Sin embargo, contra MiniMax de profundidad 4, MCTS con 100 simulaciones queda por debajo. Es con MiniMax de profundidad 4 y MCTS con 200 simulaciones donde el resultado queda equilibrado. 
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/NoccaNocca/exp9_mcts_vs_minimax.png}
+    \caption{MCTS vs MiniMax variando simulaciones de MCTS y profundidad de MiniMax.}
+    \label{fig:nocca-exp9-mcts-minimax}
+\end{figure}
+
+En las gráficas no solo se observa que MCTS con 200 simulaciones queda equilibrado contra MiniMax con profundidad 4, sino también cómo el aumento de profundidad en MiniMax y el aumento de simulaciones en MCTS afectan el costo computacional. En particular, MCTS con 200 simulaciones tiene un costo bastante menor que MiniMax con profundidad 4, aproximadamente 1 s contra 6 s por decisión, y aun así logra un resultado equilibrado. Por eso, en esta comparación resulta una opción más conveniente.
 
 \subsubsection*{Conclusiones de Nocca Nocca}
 
-Nocca Nocca muestra mejor que Tic-Tac-Toe el compromiso entre calidad de decisión y costo computacional. MiniMax mejora al aumentar profundidad, pero el crecimiento del árbol hace que profundidades mayores sean caras y que una evaluación terminal simple no alcance para ordenar bien estados intermedios. MCTS, en cambio, permite controlar el presupuesto mediante simulaciones y rollouts. Su desventaja es que el costo crece con partidas simuladas largas y que los resultados pueden variar entre corridas por la aleatoriedad de los rollouts.
+Nocca Nocca muestra con más claridad que Tic-Tac-Toe el costo de buscar en juegos con muchas acciones posibles. En este caso no alcanza con aumentar la profundidad o el número de rollouts sin mirar el costo, incluso con pocas partidas, algunas configuraciones tardaron mucho tiempo en terminar o directamente no terminaron.
 
-En conjunto, los experimentos sugieren que para Nocca Nocca MCTS es más flexible que MiniMax con profundidad fija, especialmente cuando no se cuenta con una heurística fuerte para evaluar estados no terminales. Aun así, el presupuesto debe elegirse con cuidado: más simulaciones o más rollouts no garantizan una mejora monótona en pocas partidas, pero sí aumentan de forma clara el tiempo de decisión.
+En MiniMax vs MiniMax, aumentar la profundidad no produjo una mejora clara, con profundidad 4 llegó a recompensa promedio 0, lo que significa que el juego termino porque alcanzó el numero maximo de steps, ademas de tener un costo muy alto. Esto se debe a que la evaluación de estados intermedios aporta poca información y el árbol de búsqueda crece rápidamente. 
+
+En MCTS vs MCTS, aumentar simulaciones ayudó a acercarse a recompensa 0, mientras que aumentar rollouts tuvo un efecto más limitado, donde alrededor de 10 rollouts se obtuvieron los mejores resultados, pero seguir aumentando no mejoró claramente.
+
+La comparación MCTS vs MiniMax resume esta diferencia. MCTS con 200 simulaciones logró quedar equilibrado contra MiniMax con profundidad 4, pero con un tiempo promedio mucho menor. Por eso, para Nocca Nocca, MCTS resulta más flexible que MiniMax con profundidad fija, especialmente cuando no se cuenta con una heurística fuerte para evaluar estados no terminales. 
+
+\subsection{Leduc Hold'em}
+
+Leduc Hold'em se utiliza para evaluar agentes en un juego de suma cero con información imperfecta. Cada jugador recibe una carta privada, luego se revela una carta pública y las decisiones de apuesta se toman sin conocer la carta del rival. A diferencia de Tic-Tac-Toe y Nocca Nocca, el estado observado por un agente no determina completamente el estado real del juego.
+
+Como criterio empírico, una reward promedio estable y cercana a 0 en enfrentamientos simétricos sugiere que ninguno de los agentes obtiene una ventaja persistente. Sin embargo, esto no prueba por sí solo que se alcanzó el equilibrio de Nash.
+
+En esta sección se comparan Counterfactual Regret Minimization (CFR) e Information Set Monte Carlo Tree Search (ISMCTS). CFR aprende una política promedio sobre estados de información mediante regret matching, mientras que ISMCTS realiza búsquedas sobre determinaciones compatibles con la observación del agente. Las recompensas se reportan desde la perspectiva de \texttt{player\_0}; valores positivos favorecen a \texttt{player\_0} y valores negativos favorecen a \texttt{player\_1}.
+
+\subsubsection*{CFR}
+
+Primero se evaluó CFR contra un agente Random. Esta comparación mide el reward promedio de la política aprendida contra un oponente aleatorio, por lo que sirve para verificar que CFR aprende algo útil y logra explotar decisiones no estratégicas. Sin embargo, no es una medida de convergencia al equilibrio, porque un buen desempeño contra Random no implica que la política sea difícil de explotar por un rival óptimo. En la corrida guardada, CFR como \texttt{player\_0} obtuvo una recompensa promedio de 0.581 contra Random en 2000 partidas.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/Leduc/evo_cfr_vs_random.png}
+    \caption{Evolución del reward promedio acumulado en CFR vs Random.}
+    \label{fig:leduc-cfr-vs-random}
+\end{figure}
+
+Para analizar la estabilidad de la estrategia aprendida se enfrentaron dos agentes CFR entre sí. Si la estrategia converge hacia un equilibrio de Nash, entonces dos jugadores con el mismo entrenamiento no deberían obtener una ventaja persistente, y la reward promedio esperada debería quedar cerca de 0 por simetría. En la corrida guardada, CFR contra CFR obtuvo una recompensa promedio de -0.040 para \texttt{player\_0} en 2000 partidas.
+
+La evolución del reward promedio acumulado en CFR vs CFR se mantiene alrededor de 0 con oscilaciones propias de la varianza del juego, en lugar de mostrar una tendencia sostenida a favor de uno de los jugadores. Por eso, esta comparación se usa como criterio empírico más cercano para estudiar convergencia al equilibrio.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/Leduc/evo_cfr_vs_cfr.png}
+    \caption{Evolución del reward promedio acumulado en CFR vs CFR.}
+    \label{fig:leduc-cfr-vs-cfr}
+\end{figure}
+
+\subsubsection*{ISMCTS}
+
+Luego se evaluó ISMCTS, usando determinización desde el conjunto de información del agente. En cada simulación, el ambiente samplea una carta posible para el oponente compatible con la carta propia y el historial público. Con 50 simulaciones y 5 rollouts, ISMCTS obtuvo una recompensa promedio de 0.942 contra Random en 200 partidas.
+
+También se enfrentaron agentes ISMCTS entre sí para aislar el efecto de los hiperparámetros. Al variar las simulaciones en $[10,25,50,100,200]$ con 5 rollouts fijos, la recompensa promedio de \texttt{player\_0} se mantuvo cerca de 0: 0.113, -0.010, -0.063, -0.078 y -0.081 respectivamente. Esto indica que, cuando ambos jugadores tienen el mismo presupuesto, ninguno domina de forma estable. El costo sí crece casi linealmente, desde aproximadamente 42.7 ms por decisión con 10 simulaciones hasta 798.2 ms con 200 simulaciones.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/Leduc/ismcts_vs_ismcts_simulations.png}
+    \caption{ISMCTS vs ISMCTS variando simulaciones.}
+    \label{fig:leduc-ismcts-simulations}
+\end{figure}
+
+Al variar la cantidad de rollouts con 50 simulaciones fijas, los resultados fueron más ruidosos. Los rewards promedio oscilaron entre -0.317 y 0.260, sin una mejora monótona. Esto muestra que, en Leduc, aumentar rollouts reduce varianza en cada evaluación local, pero no garantiza por sí solo una ventaja estable, especialmente por la incertidumbre de la carta oculta y la varianza natural de las apuestas.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/Leduc/ismcts_vs_ismcts_rollouts.png}
+    \caption{ISMCTS vs ISMCTS variando rollouts.}
+    \label{fig:leduc-ismcts-rollouts}
+\end{figure}
+
+\subsubsection*{CFR vs ISMCTS}
+
+Finalmente se compararon CFR e ISMCTS directamente. Cuando CFR juega como \texttt{player\_0} contra ISMCTS con 50 simulaciones y 5 rollouts, la recompensa promedio de \texttt{player\_0} fue -0.382 en 200 partidas. Esto indica que, en esa corrida, ISMCTS obtuvo ventaja desde la posición de \texttt{player\_1}. De todos modos, la comparación es sensible a la posición, al número de partidas y al presupuesto de simulaciones, por lo que se reporta como una comparación empírica y no como una solución exacta del juego.
+
+El resumen de medias muestra la tendencia general de los enfrentamientos: CFR e ISMCTS superan claramente a Random, CFR contra CFR queda cerca de 0, e ISMCTS contra CFR puede variar según la posición y el presupuesto. En términos de tiempo, CFR es muy barato en inferencia una vez entrenado, porque solo consulta la política aprendida. En el benchmark, CFR con 200 iteraciones tomó aproximadamente 0.004 ms por decisión, mientras que ISMCTS creció de 42.985 ms con 10 simulaciones a 404.465 ms con 100 simulaciones.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/Leduc/resumen_medias.png}
+    \caption{Resumen comparativo de reward promedio en Leduc.}
+    \label{fig:leduc-resumen-medias}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/Leduc/benchmark_tiempos.png}
+    \caption{Benchmark de tiempo promedio por decisión en Leduc.}
+    \label{fig:leduc-benchmark}
+\end{figure}
+
+\subsubsection*{Conclusiones de Leduc}
+
+Los experimentos de Leduc muestran la diferencia entre aprender una política para estados de información y planificar mediante simulaciones online. CFR requiere entrenamiento previo, pero luego decide casi instantáneamente y tiende a estabilizarse cuando se enfrenta a otra política CFR. ISMCTS no necesita entrenamiento offline, pero paga un costo por decisión que crece con las simulaciones y los rollouts. En un juego de información imperfecta, esta diferencia es central: no alcanza con buscar sobre un estado completamente visible, sino que el agente debe razonar sobre los estados compatibles con lo que observa.
 
 \subsection{Kuhn Poker}
 
@@ -466,7 +591,7 @@ En conjunto, los experimentos sugieren que para Nocca Nocca MCTS es más flexibl
 
 Este obligatorio permite estudiar problemas de decisión secuencial multiagente mediante juegos alternados. A partir de una interfaz común para ambientes, se implementaron agentes representativos de distintas familias: búsqueda adversarial exhaustiva, búsqueda Monte Carlo, búsqueda sobre estados de información y minimización de regret.
 
-Tic-Tac-Toe ofrece un punto de partida controlado para verificar el funcionamiento de los algoritmos en información perfecta. Nocca Nocca introduce un espacio de acciones más complejo, donde la eficiencia de la búsqueda se vuelve más relevante. Kuhn Poker agrega información imperfecta y permite observar la necesidad de razonar sobre estados compatibles con la observación del agente.
+Tic-Tac-Toe ofrece un punto de partida controlado para verificar el funcionamiento de los algoritmos en información perfecta. Nocca Nocca introduce un espacio de acciones más complejo, donde la eficiencia de la búsqueda se vuelve más relevante. Leduc Hold'em y Kuhn Poker agregan información imperfecta y permiten observar la necesidad de razonar sobre estados compatibles con la observación del agente.
 
 En conjunto, los ambientes y agentes implementados muestran cómo la estructura del juego condiciona la elección del algoritmo. Minimax resulta natural para juegos pequeños de información perfecta, MCTS permite escalar mediante simulaciones, ISMCTS adapta la búsqueda a información imperfecta y CFR permite aprender políticas promedio en juegos extensivos.
 
