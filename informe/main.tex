@@ -335,6 +335,57 @@ Además de medir desempeño en partidas, se comparó el tiempo promedio de decis
 
 El tiempo promedio por decisión de MiniMax pasó de aproximadamente 0.00047 s con profundidad $1$ a 1.272 s con profundidad $9$, un aumento de varios órdenes de magnitud. MCTS, en cambio, escaló de forma más suave, de 0.0128 s con 10 simulaciones a 0.1801 s con 200 simulaciones. En tiempo total sobre 20 partidas, MiniMax con profundidad $9$ insumió alrededor de 88.5 s, mientras que MCTS con 200 simulaciones tomó alrededor de 11.5 s.
 
+\subsubsection*{Funciones de Evaluación para Tic-Tac-Toe}
+El juego Tic-Tac-Toe trae implementada una función de evaluación por defecto. La cual  
+pondera las lineas abiertas del agente vs las lineas abiertas del oponente. Una línea abierta es una fila, columna o diagonal que no contiene marcas del oponente. La función de evaluación devuelve la diferencia entre las líneas abiertas del agente y las líneas abiertas del oponente.
+
+Sin embargo, diseñamos otra función de evaluación para competir con la que existe por defecto. En este caso, la nueva estrategia permite calificar que tan buenas son las rutas abiertas, por ejemplo una ruta abierta sin fichas de agente no es tan buena como una ruta abierta con dos fichas de agente.
+
+Como experimento, enfrentamos 2 Minimax, cada una usando una función de evaluación distinta, con profundidadidades que oscilan entre 1 y 7, sorteando el orden de cada agente a modo de no dar ventajas implicitas tras 20 partidas. 
+A su vez también se midió el tiempo de computo por agente.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{figures/TicTacToe/eval_benchmark.png}
+    \caption{Comparación de funciones de evaluación en Minimax en Tic-Tac-Toe.}
+    \label{fig:eval-benchmark}
+\end{figure}
+
+\textbf{Nomeclatura:} TicTacToe.eval es la función de evaluación por defecto, mientras que TicTacToeEval.eval es la función de evaluación diseñada para este experimento.
+
+\textbf{Gráfico izquierdo — resultados por profundidad:}
+el benchmark enfrenta directamente \texttt{TicTacToe.eval} contra
+\texttt{TicTacToeEval.eval} usando Minimax con alternancia de quien
+juega primero (10 partidas por lado, 20 en total por profundidad).
+
+A profundidad~1, \texttt{TicTacToe} gana las 20 partidas. Con un
+horizonte de una sola jugada, la heurística de líneas abiertas guía
+mejor la búsqueda: saber cuántas rutas de
+victoria siguen disponibles es más informativo que el conteo de
+amenazas de \texttt{TicTacToeEval}, cuyo potencial solo se materializa
+con piezas ya colocadas en la línea. A profundidades~2 y~3 la
+ventaja de \texttt{TicTacToe} se reduce y los empates aumentan. En
+profundidad~5 ambas funciones obtienen el mismo número de victorias.
+A profundidad~7, todas las partidas terminan en empate, resultado
+consistente con el equilibrio teórico del Tic-Tac-Toe: con juego
+perfecto el resultado es siempre tablas.
+
+\textbf{Gráfico derecho — costo computacional (escala logarítmica):}
+\texttt{TicTacToeEval} es sistemáticamente más lenta que
+\texttt{TicTacToe} a todas las profundidades, ya que su
+\texttt{\_eval} realiza más aritmética por línea (suma de $\text{owns}^2$)
+frente a las comprobaciones booleanas simples de \texttt{TicTacToe}.
+Ambas crecen exponencialmente con la profundidad (factor de
+ramificación $\approx 9$) y convergen en torno a los $10^4$\,ms
+en profundidad~7, donde el costo del árbol de búsqueda domina
+por completo el costo de la función de evaluación.
+
+\textbf{Conclusión:} una heurística más elaborada no implica necesariamente
+mejor rendimiento en Minimax. \texttt{TicTacToe}, con su función más
+simple y rápida, supera a \texttt{TicTacToeEval} a profundidades bajas
+y empata a profundidades altas, siendo además menos costosa en tiempo
+por decisión.
+
 
 \subsubsection*{Conclusiones de Tic-Tac-Toe}
 
