@@ -158,6 +158,11 @@ Kuhn Poker es un juego de cartas simplificado de dos jugadores y suma cero \cite
 
 El valor del ambiente radica en que es un juego pequeño pero con información imperfecta. Cada agente conoce su propia carta y el historial público, pero no conoce la carta del oponente. Por este motivo, Kuhn Poker es especialmente adecuado para evaluar ISMCTS y CFR.
 
+\subsection{Kuhn Poker de 3 jugadores}
+
+Khun Poker de 3 jugadores es una extensión del juego clásico que introduce un tercer jugador, aumentando la complejidad estratégica y la dificultad de razonar sobre estados de información. Cada jugador recibe una carta privada y las apuestas se realizan en rondas, con el objetivo de maximizar la ganancia esperada frente a dos oponentes.
+A comparación con la versión de 2 jugadores, la presencia de un tercer jugador genera un espacio de información más amplio y requiere que los agentes consideren múltiples combinaciones de cartas y estrategias de los oponentes.
+
 \clearpage
 \section{Implementación}
 
@@ -214,13 +219,289 @@ El agente CFR mantiene nodos asociados a observaciones o estados de información
 
 \subsection{Kuhn Poker}
 
-\subsubsection*{Random vs Random}
-
 \subsubsection*{CFR vs Random}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker/exp1_cfr_vs_random.png}
+    \caption{CFR vs Random: reward promedio de agent\_0 en función de las iteraciones de entrenamiento.}
+    \label{fig:cfr_vs_random}
+\end{figure}
+
+El gráfico muestra cómo mejora la performance de CFR como \texttt{agent\_0}
+a medida que aumentan las iteraciones de entrenamiento, enfrentado contra
+un agente Random. Se grafican dos métricas en función de las iteraciones
+(eje $x$ en escala logarítmica):
+
+\begin{itemize}
+    \item \textbf{Reward promedio:} valor esperado obtenido por CFR por
+    partida. Sin entrenamiento CFR juega casi aleatoriamente y el reward
+    es cercano a~0; al aumentar las iteraciones aprende a explotar al
+    oponente y el valor sube hacia positivo.
+
+    \item \textbf{Win rate:} fracción de partidas ganadas. Complementa
+    al reward porque en Kuhn Poker los pagos son $\pm 1$ o $\pm 2$, por
+    lo que el win rate ofrece una lectura más intuitiva del desempeño.
+\end{itemize}
+
+La línea horizontal gris en $y = 0$ representa la referencia de juego
+aleatorio simétrico: si ambos jugadores actuaran al azar, el reward
+esperado sería~0. Cualquier valor por encima indica que CFR ha aprendido
+una estrategia útil. La gráfica refleja que las
+ganancias de aprendizaje más relevantes ocurren en los primeros órdenes
+de magnitud de entrenamiento.
+
+
 \subsubsection*{ISMCTS vs Random}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker/exp2_ismcts_vs_random.png}
+    \caption{ISMCTS vs Random: reward promedio de agent\_0 en función de las iteraciones de entrenamiento.}
+    \label{fig:ismcts_vs_random}
+\end{figure}
+
+El gráfico izquierdo muestra el reward promedio y el win rate de ISMCTS
+como \texttt{agent\_0} contra un agente Random, en función del número de
+simulaciones por decisión. El gráfico derecho registra el tiempo de
+cómputo promedio por decisión de ISMCTS.
+
+\begin{itemize}
+    \item \textbf{ISMCTS supera consistentemente a Random:} tanto el
+    reward promedio como el win rate se mantienen por encima de~0 y
+    del~50\% respectivamente para todos los valores de simulaciones
+    evaluados, lo que indica que ISMCTS aprende a explotar al oponente
+    aleatorio independientemente del número de simulaciones.
+
+    \item \textbf{Más simulaciones no mejoran el desempeño contra Random:}
+    el reward promedio desciende de~${\approx}0.40$ con 5~simulaciones
+    hasta estabilizarse en torno a~$0.20$ con 100--200~simulaciones.
+    Este comportamiento es esperable: contra un oponente que actúa al
+    azar, una política más agresiva (inducida por pocas simulaciones,
+    que favorece apostar) explota mejor al rival que una política cercana
+    al equilibrio de Nash (obtenida con más simulaciones, que mezcla
+    entre pasar y apostar de forma más cuidadosa).
+
+    \item \textbf{Costo computacional lineal:} el tiempo de decisión
+    crece aproximadamente en forma lineal con el número de simulaciones,
+    pasando de ${\approx}10$\,ms con 5~simulaciones hasta
+    ${\approx}600$\,ms con 200~simulaciones. Esto se debe a que cada
+    simulación ejecuta una búsqueda independiente en el árbol, por lo
+    que el costo total es proporcional al número de simulaciones.
+\end{itemize}
+
 
 \subsubsection*{CFR vs ISMCTS}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker/exp3_cfr_vs_ismcts.png}
+    \caption{CFR vs ISMCTS: reward promedio de agent\_0 en función de las iteraciones de entrenamiento.}
+    \label{fig:cfr_vs_ismcts}
+\end{figure}
+
+Los dos gráficos corresponden a un experimento que enfrenta CFR
+(\texttt{agent\_0}) contra ISMCTS (\texttt{agent\_1}) variando
+alternativamente el computo de cada agente.
+
+\textbf{Gráfico izquierdo — CFR fijo (1000~iters) vs ISMCTS variable:}
+con 1000~iteraciones de entrenamiento, CFR obtiene rewards en torno
+a~$-0.25$ a~$-0.35$, muy por debajo del valor Nash de
+\texttt{agent\_0} ($-0.056$, línea roja punteada). ISMCTS, por su
+parte, obtiene rewards positivos (${\approx}0.20$--$0.33$) para todos
+los valores de simulaciones evaluados. Esto indica que CFR no ha
+convergido a una política Nash-óptima y ISMCTS logra explotarlo
+independientemente de su costo computacional. La cantidad de
+simulaciones de ISMCTS no produce una mejora notoria, lo que sugiere
+que el factor limitante es la calidad de la política de CFR y no la
+búsqueda del oponente.
+
+\textbf{Gráfico derecho — CFR variable vs ISMCTS fijo (100~sims):}
+al aumentar las iteraciones de entrenamiento de CFR, su reward sube
+de~${\approx}{-0.5}$ (100~iters) hacia~${\approx}{-0.30}$
+(2000~iters), acercándose progresivamente al valor Nash. En paralelo,
+el reward de ISMCTS desciende de~${\approx}0.45$ a~${\approx}0.25$--$0.30$.
+Esto confirma que más entrenamiento mejora la política de CFR y
+reduce el margen de explotación de ISMCTS, aunque incluso con
+2000~iteraciones CFR no alcanza el valor Nash de referencia,
+lo que refleja la dificultad de convergencia.
+
+\subsubsection*{Buscando el equilibrio de Nash}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker/exp4_selfplay.png}
+    \caption{CFR e ISMCTS en self-play: reward promedio de agent\_0 y agent\_1 en función de las iteraciones de entrenamiento.}
+    \label{fig:convergencia_al_equilibrio_de_nash}
+\end{figure}
+
+El Experimento~4 evalúa el auto-juego simétrico de cada algoritmo:
+ambos agentes del mismo tipo se enfrentan entre sí variando su
+parámetro de calidad, y se mide el reward de \texttt{agent\_0}.
+El valor de referencia es el equilibrio de Nash
+($-1/18 \approx -0.056$, línea roja punteada).
+
+\textbf{Gráfico izquierdo — CFR vs CFR:}
+el reward de \texttt{agent\_0} converge de forma monótona hacia el
+valor Nash a medida que aumentan las iteraciones de entrenamiento:
+parte en~${\approx}{-0.30}$ con 100~iteraciones, pasa por
+${\approx}{-0.08}$ con 500 y alcanza~${\approx}{-0.055}$ con
+1000--2000~iteraciones. Este comportamiento confirma la garantía
+teórica de CFR: con suficientes iteraciones y entrenamiento
+alternado entre ambos agentes, la política promedio converge al
+equilibrio de Nash.
+
+\textbf{Gráfico derecho — ISMCTS vs ISMCTS:}
+el reward de \texttt{agent\_0} no muestra convergencia: oscila
+entre~$-0.32$ (10~simulaciones), sube por encima de cero
+(50~simulaciones) y vuelve a caer a~$-0.33$ con 200~simulaciones.
+Este comportamiento errático y no monótono confirma que ISMCTS no
+posee garantías teóricas de convergencia al equilibrio de Nash en
+auto-juego. Al ser un algoritmo \textit{online} que reconstruye el
+árbol de búsqueda en cada decisión sin memoria acumulada entre
+partidas, no existe un mecanismo de refinamiento iterativo que
+lleve las políticas hacia un punto fijo. La alta varianza observada
+refleja además el reducido número de partidas evaluadas
+($N = 200$) junto con la naturaleza estocástica del muestreo
+por determinización.
+
+\subsection{Kuhn Poker de 3 jugadores}
+\subsubsection*{2 CFR vs 1 ISMCTS}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker3/cfr2_ismcts1.png}
+    \caption{2 CFR vs 1 ISMCTS en Kuhn Poker de 3 jugadores: reward promedio de agent\_0 y agent\_1 en función de las iteraciones de entrenamiento.}
+    \label{fig:cfr_vs_ismcts_3_players}
+\end{figure}
+
+El experimento enfrenta dos agentes CFR entrenados con \texttt{node\_dict}
+compartido (\texttt{agent\_0} y \texttt{agent\_1}) contra un agente
+ISMCTS (\texttt{agent\_2}) variando las simulaciones de este último.
+El juego es de suma cero, por lo que la suma de los tres rewards en
+cada configuración es siempre cero.
+
+\textbf{Relación con el equilibrio de Nash de Kuhn Poker de 3 jugadores:}
+a diferencia de la variante de 2 jugadores, en Kuhn Poker de 3 jugadores
+no existe una fórmula cerrada simple para los valores Nash de cada
+posición. Sin embargo, dado que el juego es de suma cero y el orden de
+juego es fijo (\texttt{agent\_0} actúa primero, \texttt{agent\_2}
+último), la posición introduce una asimetría estructural: actuar último
+otorga ventaja de información sobre el historial de apuestas previo.
+
+\textbf{Gráfico izquierdo — rewards por agente:}
+con pocas simulaciones (10), ISMCTS juega casi aleatoriamente y los
+agentes CFR lo explotan: \texttt{agent\_0} obtiene~${\approx}0.04$ y
+\texttt{agent\_2} apenas~$0.015$. Al aumentar las simulaciones,
+ISMCTS mejora su política y el panorama se invierte: con 200
+simulaciones, \texttt{agent\_2} alcanza~${\approx}0.08$ mientras los
+dos CFR pasan a valores negativos (${\approx}{-0.065}$ y ${\approx}{-0.02}$
+respectivamente). Este resultado refleja que los agentes CFR fueron
+entrenados en auto-juego entre sí, con \texttt{agent\_2} tratado como
+agente uniforme durante el entrenamiento. Al sustituirlo por ISMCTS
+con suficientes simulaciones, ISMCTS explota las políticas CFR que
+no fueron optimizadas contra su estrategia particular.
+
+\textbf{Gráfico derecho — costo computacional:}
+los agentes CFR toman decisiones en tiempo constante e inferior a
+$0.05$\,ms independientemente de las simulaciones de ISMCTS, ya que
+la política está almacenada en \texttt{node\_dict} y la acción es
+un simple \textit{lookup}. ISMCTS escala linealmente (en escala
+logarítmica) desde~${\approx}30$\,ms con 10~simulaciones
+hasta~${\approx}300$\,ms con 200, pagando un costo creciente por
+cada decisión. Esto ilustra el tradeoff fundamental entre ambos
+enfoques: CFR requiere entrenamiento offline costoso pero toma
+decisiones instantáneas, mientras que ISMCTS traslada todo el
+costo al momento de la decisión.
+
+\subsubsection*{3 CFR}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker3/cfr3_autoplay.png}
+    \caption{3 CFR en Kuhn Poker de 3 jugadores: reward promedio de agent\_0, agent\_1 y agent\_2 en función de las iteraciones de entrenamiento.}
+    \label{fig:cfr3_autoplay}
+\end{figure}
+
+La figura muestra la convergencia del reward esperado analítico
+(calculado mediante \texttt{cfr\_expected\_reward} sobre todos los
+$P(4,3)=24$ repartos posibles) para los tres agentes CFR entrenados
+en auto-juego con \texttt{train\_alternated}, en función de las
+iteraciones de entrenamiento por agente.
+
+\textbf{Convergencia y propiedad de suma cero:}
+con pocas iteraciones (100), los valores son muy dispersos
+($v_0 \approx -0.38$, $v_1 \approx 0.10$, $v_2 \approx 0.28$),
+reflejo de políticas aún no equilibradas. A partir de las 1000
+iteraciones los valores se estabilizan y la suma $v_0 + v_1 + v_2
+\approx 0$ se cumple en cada punto, confirmando la propiedad de
+suma cero del juego.
+
+\textbf{Asimetría posicional en el equilibrio:}
+los valores convergidos no son iguales entre agentes
+($v_0 \approx -0.065$, $v_1 \approx 0$, $v_2 \approx +0.06$),
+lo cual no constituye una desviación del equilibrio de Nash sino
+una característica estructural del juego con orden de actuación
+fijo. \texttt{agent\_0} actúa primero sin información sobre las
+acciones ajenas, lo que lo expone estructuralmente a la
+explotación; \texttt{agent\_2} actúa último y puede condicionar
+su decisión a las dos acciones previas, obteniendo ventaja
+informacional. Esta asimetría es análoga a la que ocurre en
+Kuhn Poker de 2 jugadores, donde el jugador que actúa primero
+tiene un valor Nash negativo ($-1/18$), pero en la variante
+de 3 jugadores el efecto se amplifica.
+
+\textbf{Forma de la convergencia:}
+\texttt{agent\_0} parte en $-0.38$ y sube hacia $-0.065$, ya
+que al comienzo del entrenamiento los otros agentes aún no
+tienen políticas sólidas y su aparente desventaja se maximiza;
+conforme los tres aprenden, la explotabilidad de cada uno
+disminuye y los valores se estabilizan en el equilibrio de
+Nash de la variante de 3 jugadores.
+
+
+\subsubsection*{3 ISMCTS}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{figures/KuhnPoker3/ismcts_autoplay.png}
+    \caption{3 ISMCTS en Kuhn Poker de 3 jugadores: reward promedio de agent\_0, agent\_1 y agent\_2 en función de las iteraciones de entrenamiento.}
+    \label{fig:ismcts3_autoplay}
+\end{figure}
+
+La figura muestra el reward promedio de cada agente ISMCTS en
+auto-juego de 3 jugadores, variando las simulaciones por decisión
+y promediando sobre $N=200$ partidas por configuración.
+
+\textbf{Alta varianza a simulaciones bajas:}
+con 5 a 25 simulaciones por decisión, las curvas oscilan
+fuertemente (llegando a $\pm 0.35$). Con tan pocas simulaciones
+la determinización aleatoria del information set no captura
+de forma fiable la distribución de cartas del oponente, por lo
+que la elección de acción depende en gran medida del conjunto
+de mundos posibles muestreado en esa partida particular. El
+resultado es que pequeños cambios en el número de simulaciones
+producen variaciones de reward.
+
+\textbf{Ausencia de convergencia al equilibrio de Nash:}
+a diferencia del experimento con CFR, las curvas de ISMCTS no
+se estabilizan en valores fijos conforme crecen las simulaciones.
+Esto refleja una propiedad teórica fundamental: ISMCTS no tiene
+garantía de convergencia a equilibrio de Nash en auto-juego
+multi-agente. Cada agente optimiza localmente dado el
+comportamiento actual de los demás, pero como los tres cambian
+simultáneamente no existe un punto fijo garantizado.
+
+\textbf{Tendencia con 200 simulaciones:}
+con mayor simulaciones \texttt{agent\_2} obtiene el
+mejor reward (${\approx}+0.17$), mientras \texttt{agent\_0} y
+\texttt{agent\_1} caen a valores negativos. Con más simulaciones,
+actuar en última posición resulta más beneficioso: el agente puede
+explotar mejor la información de las dos acciones previas, que con
+muchas simulaciones se traduce en decisiones de mayor calidad.
+
+\textbf{Suma cero verificada:}
+en cada configuración la suma de los tres rewards se mantiene
+próxima a cero (línea de puntos), confirmando la propiedad de
+suma cero del juego independientemente del número de simulaciones.
+
+
 
 \subsubsection*{Política aprendida por CFR}
 
